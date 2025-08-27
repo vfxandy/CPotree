@@ -88,12 +88,10 @@ add_executable(extract_profile
 
 
 if (WITH_AWS_SDK)
-target_link_libraries(extract_profile ${AWSSDK_LINK_LIBRARIES} ${AWSSDK_PLATFORM_DEPS})
+target_link_libraries(extract_profile PRIVATE ${AWSSDK_LINK_LIBRARIES} ${AWSSDK_PLATFORM_DEPS})
 endif (WITH_AWS_SDK)
 
-target_link_libraries(extract_profile laszip)
-target_link_libraries(extract_profile brotlienc-static)
-target_link_libraries(extract_profile brotlidec-static)
+target_link_libraries(extract_profile PRIVATE laszip brotlienc-static brotlidec-static)
 
 target_include_directories(extract_profile PRIVATE "./include")
 target_include_directories(extract_profile PRIVATE "./modules")
@@ -101,10 +99,20 @@ target_include_directories(extract_profile PRIVATE "./libs")
 
 if (UNIX)
 	find_package(Threads REQUIRED)
-#	find_package(TBB REQUIRED)
-	
-	target_link_libraries(extract_profile Threads::Threads)
-#	target_link_libraries(extract_profile tbb)
+	# Try to find modern TBB CMake package first
+	find_package(TBB QUIET)
+	if (TBB_FOUND)
+		target_link_libraries(extract_profile PRIVATE Threads::Threads TBB::tbb)
+	else()
+		# Fallback: try to link libtbb directly (system package name 'tbb')
+		find_library(TBB_LIB NAMES tbb tbb_debug tbb_static)
+		if (TBB_LIB)
+			target_link_libraries(extract_profile PRIVATE Threads::Threads ${TBB_LIB})
+		else()
+			message(WARNING "TBB not found. If you see undefined references to tbb symbols, install Intel TBB and re-run CMake.")
+			target_link_libraries(extract_profile PRIVATE Threads::Threads)
+		endif()
+	endif()
 endif (UNIX)
 
 buildLicenses(extract_profile)
@@ -137,10 +145,20 @@ target_include_directories(extract_area PRIVATE "./libs")
 
 if (UNIX)
 	find_package(Threads REQUIRED)
-#	find_package(TBB REQUIRED)
-	
-	target_link_libraries(extract_area Threads::Threads)
-#	target_link_libraries(extract_area tbb)
+	# Try to find modern TBB CMake package first
+	find_package(TBB QUIET)
+	if (TBB_FOUND)
+		target_link_libraries(extract_area PRIVATE Threads::Threads TBB::tbb)
+	else()
+		# Fallback: try to link libtbb directly
+		find_library(TBB_LIB NAMES tbb tbb_debug tbb_static)
+		if (TBB_LIB)
+			target_link_libraries(extract_area PRIVATE Threads::Threads ${TBB_LIB})
+		else()
+			message(WARNING "TBB not found. If you see undefined references to tbb symbols, install Intel TBB and re-run CMake.")
+			target_link_libraries(extract_area PRIVATE Threads::Threads)
+		endif()
+	endif()
 endif (UNIX)
 
 buildLicenses(extract_area)
